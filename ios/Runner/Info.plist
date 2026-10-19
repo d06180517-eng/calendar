@@ -74,5 +74,18 @@
 	<string>Доступ к фото нужен, чтобы добавлять их в сторис и дневник.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Геопозиция нужна, чтобы подставить погоду в дневник.</string>
+	<key>GIDClientID</key>
+	<string>796050138013-grqc404li0rm7gavduhtntgsn95nqlvf.apps.googleusercontent.com</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.796050138013-grqc404li0rm7gavduhtntgsn95nqlvf</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

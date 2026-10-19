@@ -12,7 +12,8 @@ class AppConfig {
   static const googleServerClientId = '';
 
   /// CLIENT_ID из GoogleService-Info.plist — вход через Google на iOS.
-  static const googleIosClientId = '';
+  static const googleIosClientId =
+      '796050138013-grqc404li0rm7gavduhtntgsn95nqlvf.apps.googleusercontent.com';
 
   static const _android = FirebaseOptions(
     apiKey: 'AIzaSyAiJb_9o_jF3oOPvQPdIS4PhcBSYHuIaJ8',
