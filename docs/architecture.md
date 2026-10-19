@@ -12,17 +12,23 @@
 | Уведомления | `flutter_local_notifications` + `timezone` |
 | Настройки | `shared_preferences` |
 | Идентификаторы | `uuid` |
+| Сервер | `firebase_core`, `firebase_auth`, `cloud_firestore`, `google_sign_in` |
+| Медиа в облаке | Cloudinary через `http` |
 
 ## Структура
 
 ```
 lib/
-  main.dart                 запуск: форматы дат, настройки, напоминания
+  main.dart                 запуск: форматы дат, настройки, Firebase, напоминания
+  config.dart               ключи Firebase, Cloudinary, Google
   l10n.dart                 строки RU/EN, форматы дат, склонения
   data/
     models.dart             модели (Story, Plan, DiaryPost, Comment, Chat…)
     app_state.dart          всё состояние и правила приложения
+    backend.dart            интерфейс сервера
+    firebase_backend.dart   Firebase: вход, синхронизация, документы
   services/
+    cloudinary.dart         загрузка фото/видео, уменьшенные копии
     weather_service.dart    текущая погода (Open-Meteo)
     reminder_service.dart   напоминание о дневнике и планы
     media_picker.dart       выбор фото/видео
@@ -52,7 +58,7 @@ docs/                       эта документация
   работают с фиксированной датой.
 - Сервисы (`WeatherService`, `ReminderService`) передаются через `Provider`
   и подменяются в тестах.
-- Медиа: байты выбранного файла (`Media.bytes`), путь к видео
+- Медиа: ссылка в Cloudinary (`Media.url`), байты выбранного файла (`Media.bytes`), путь к видео
   (`Media.path`) или градиент-заглушка (`Media.placeholder`).
   Видеоплеер выбирается условным импортом: `video_source_io.dart` /
   `video_source_web.dart`.
@@ -109,17 +115,7 @@ flutter test      # 40 тестов
 Веб-превью: `flutter build web --release --no-web-resources-cdn`
 (в `index.html` для публикации в подпапке `<base href>` меняется на `./`).
 
-## Бэкенд (план)
+## Сервер
 
-Сейчас данные живут в памяти и пропадают при закрытии. Решено:
-
-- **Firebase (бесплатный план Spark)**: Authentication (email + Google),
-  Firestore для пользователей, записей, комментариев, чатов, уведомлений.
-- **Cloudinary (бесплатный план)** для фото и видео — без платного
-  Firebase Storage.
-- Пуш-уведомления между пользователями — только после перехода на Blaze
-  (Cloud Functions + FCM). Локальные напоминания работают уже сейчас.
-
-`AppState` спроектирован так, чтобы методы остались теми же, а внутри
-вместо списков в памяти появились запросы к Firestore — экраны менять
-не придётся.
+Firebase (Auth + Firestore) и Cloudinary — подробно в [backend.md](backend.md):
+коллекции, правила доступа, лимиты, подпись APK, настройка с нуля.
