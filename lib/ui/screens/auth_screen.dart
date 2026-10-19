@@ -19,6 +19,7 @@ class _AuthScreenState extends State<AuthScreen> {
   final _nick = TextEditingController();
   bool _register = false;
   bool _hide = true;
+  bool _busy = false;
   String? _error;
 
   @override
@@ -29,12 +30,31 @@ class _AuthScreenState extends State<AuthScreen> {
     super.dispose();
   }
 
-  void _submit() {
-    final s = context.read<AppState>();
-    final err = _register
+  Future<void> _run(Future<String?> Function(AppState s) action) async {
+    if (_busy) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    final err = await action(context.read<AppState>());
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _error = err == null ? null : context.t(err);
+    });
+  }
+
+  void _submit() => _run(
+    (s) => _register
         ? s.register(_email.text, _password.text, _name.text, _nick.text)
-        : s.login(_email.text, _password.text);
-    setState(() => _error = err == null ? null : context.t(err));
+        : s.login(_email.text, _password.text),
+  );
+
+  Future<void> _reset() async {
+    final s = context.read<AppState>();
+    final err = await s.resetPassword(_email.text);
+    if (!mounted) return;
+    setState(() => _error = context.t(err ?? 'resetSent'));
   }
 
   @override
@@ -121,9 +141,19 @@ class _AuthScreenState extends State<AuthScreen> {
                   const SizedBox(height: 18),
                   FilledButton(
                     key: const Key('submit'),
-                    onPressed: _submit,
-                    child: Text(context.t(_register ? 'register' : 'login')),
+                    onPressed: _busy ? null : _submit,
+                    child: _busy
+                        ? const SizedBox.square(
+                            dimension: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Text(context.t(_register ? 'register' : 'login')),
                   ),
+                  if (!_register && context.read<AppState>().backend != null)
+                    TextButton(
+                      onPressed: _busy ? null : _reset,
+                      child: Text(context.t('forgotPassword')),
+                    ),
                   const SizedBox(height: 14),
                   Row(
                     children: [
@@ -137,7 +167,9 @@ class _AuthScreenState extends State<AuthScreen> {
                   ),
                   const SizedBox(height: 14),
                   OutlinedButton.icon(
-                    onPressed: () => context.read<AppState>().loginWithGoogle(),
+                    onPressed: _busy
+                        ? null
+                        : () => _run((s) => s.loginWithGoogle()),
                     icon: const Text(
                       'G',
                       style: TextStyle(

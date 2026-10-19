@@ -18,19 +18,22 @@ void main() {
   Media img() => Media(type: MediaType.image, placeholder: demoGradients[0]);
 
   group('Вход', () {
-    test('проверяет email и пароль', () {
+    test('проверяет email и пароль', () async {
       s.logout();
-      expect(s.login('bad', '123456'), 'badEmail');
-      expect(s.login('a@b.ru', '123'), 'shortPassword');
-      expect(s.login('a@b.ru', '123456'), isNull);
+      expect(await s.login('bad', '123456'), 'badEmail');
+      expect(await s.login('a@b.ru', '123'), 'shortPassword');
+      expect(await s.login('a@b.ru', '123456'), isNull);
       expect(s.isLoggedIn, isTrue);
     });
 
-    test('регистрация не даёт занять чужой ник', () {
+    test('регистрация не даёт занять чужой ник', () async {
       s.logout();
-      expect(s.register('a@b.ru', '123456', 'Дима', 'masha'), 'nickTaken');
+      expect(
+        await s.register('a@b.ru', '123456', 'Дима', 'masha'),
+        'nickTaken',
+      );
       expect(s.isLoggedIn, isFalse);
-      expect(s.register('a@b.ru', '123456', 'Дима', '@dimas'), isNull);
+      expect(await s.register('a@b.ru', '123456', 'Дима', '@dimas'), isNull);
       expect(s.me!.nick, 'dimas');
     });
   });

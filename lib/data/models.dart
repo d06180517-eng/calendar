@@ -33,6 +33,7 @@ class AppUser {
     this.birthday,
     this.avatarColor = const Color(0xFF7FD6CF),
     this.avatarBytes,
+    this.avatarUrl,
     this.isPrivate = false,
   });
 
@@ -45,13 +46,18 @@ class AppUser {
   DateTime? birthday;
   Color avatarColor;
   List<int>? avatarBytes;
+
+  /// Аватар в облаке (Cloudinary).
+  String? avatarUrl;
   bool isPrivate;
 }
 
-/// Медиа-файл. В демо — либо байты выбранного файла, либо градиент-заглушка.
+/// Медиа-файл: ссылка в облаке, байты или путь только что выбранного файла,
+/// либо градиент-заглушка.
 class Media {
   Media({
     required this.type,
+    this.url,
     this.bytes,
     this.path,
     this.placeholder,
@@ -60,6 +66,9 @@ class Media {
   });
 
   final MediaType type;
+
+  /// Ссылка в Cloudinary; появляется после загрузки.
+  String? url;
   final List<int>? bytes;
   final String? path;
   final List<Color>? placeholder;
@@ -103,6 +112,8 @@ abstract class Post {
   DateTime createdAt;
   Audience visibility;
   final Set<String> likes = {};
+
+  /// Комментарии приходят с сервера отдельно и вставляются сюда.
   final List<Comment> comments = [];
 
   /// Дата, к которой запись относится в календаре.

@@ -1,10 +1,13 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
 
+import 'config.dart';
 import 'data/app_state.dart';
+import 'data/firebase_backend.dart';
 import 'services/reminder_service.dart';
 import 'services/weather_service.dart';
 import 'ui/screens/auth_screen.dart';
@@ -17,6 +20,13 @@ Future<void> main() async {
   await initializeDateFormatting('en');
   final state = AppState();
   await state.loadSettings();
+  final options = AppConfig.firebase;
+  if (options != null) {
+    await Firebase.initializeApp(options: options);
+    final backend = FirebaseBackend(state);
+    state.backend = backend;
+    await backend.restoreSession();
+  }
   final reminders = ReminderService();
   await reminders.init();
   runApp(

@@ -130,16 +130,17 @@ class SettingsScreen extends StatelessWidget {
               }
             },
           ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Text(
-              context.t('demoNote'),
-              style: TextStyle(
-                fontSize: 12,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
+          if (s.backend == null)
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                context.t('demoNote'),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
             ),
-          ),
         ],
       ),
     );

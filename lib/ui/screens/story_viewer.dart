@@ -49,7 +49,8 @@ class _StoryViewerState extends State<StoryViewer>
 
   Story get _story => widget.stories[_i];
   bool get _isVideo =>
-      _story.media.type == MediaType.video && _story.media.path != null;
+      _story.media.type == MediaType.video &&
+      (_story.media.path != null || _story.media.url != null);
 
   @override
   void initState() {

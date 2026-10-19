@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../data/app_state.dart';
 import '../../data/models.dart';
 import '../../l10n.dart';
+import '../../services/cloudinary.dart';
 import '../theme.dart';
 import 'media_view.dart';
 
@@ -31,6 +32,15 @@ class Avatar extends StatelessWidget {
         width: size,
         height: size,
         fit: BoxFit.cover,
+      );
+    } else if (user.avatarUrl != null) {
+      child = Image.network(
+        sizedImageUrl(user.avatarUrl!, (size * 3).round()),
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stack) =>
+            SizedBox.square(dimension: size),
       );
     } else {
       child = Container(

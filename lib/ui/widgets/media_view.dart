@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../data/models.dart';
+import '../../services/cloudinary.dart';
 import 'video_source_io.dart'
     if (dart.library.js_interop) 'video_source_web.dart';
 
@@ -39,7 +40,8 @@ class _MediaViewState extends State<MediaView> {
   bool _failed = false;
 
   bool get _isVideo =>
-      widget.media.type == MediaType.video && widget.media.path != null;
+      widget.media.type == MediaType.video &&
+      (widget.media.path != null || widget.media.url != null);
 
   @override
   void initState() {
@@ -48,7 +50,11 @@ class _MediaViewState extends State<MediaView> {
   }
 
   Future<void> _initVideo() async {
-    final c = controllerForPath(widget.media.path!);
+    // Только что снятое видео играем с телефона, остальное — из облака.
+    final m = widget.media;
+    final c = m.path != null
+        ? controllerForPath(m.path!)
+        : VideoPlayerController.networkUrl(Uri.parse(m.url!));
     _ctrl = c;
     try {
       await c.initialize();
@@ -122,6 +128,20 @@ class _MediaViewState extends State<MediaView> {
         gaplessPlayback: true,
       );
     }
+    if (m.type == MediaType.image && m.url != null) {
+      return _network(sizedImageUrl(m.url!, widget.thumbnail ? 400 : 1080));
+    }
+    if (m.type == MediaType.video && widget.thumbnail && m.url != null) {
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          _network(videoPosterUrl(m.url!, at: m.start)),
+          const Center(
+            child: Icon(Icons.play_arrow_rounded, color: Colors.white),
+          ),
+        ],
+      );
+    }
     if (_isVideo && !widget.thumbnail) {
       final c = _ctrl;
       if (_failed) return _placeholder(icon: Icons.videocam_off_outlined);
@@ -152,6 +172,18 @@ class _MediaViewState extends State<MediaView> {
           : null,
     );
   }
+
+  Widget _network(String url) => Image.network(
+    url,
+    fit: widget.fit,
+    width: double.infinity,
+    height: double.infinity,
+    gaplessPlayback: true,
+    loadingBuilder: (context, child, progress) =>
+        progress == null ? child : _placeholder(),
+    errorBuilder: (context, error, stack) =>
+        _placeholder(icon: Icons.image_not_supported_outlined),
+  );
 
   Widget _placeholder({IconData? icon}) {
     final colors =
