@@ -31,7 +31,8 @@ jobs:
           path: Calendar.apk
 
   ios:
-    runs-on: macos-latest
+    runs-on: macos-15
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
@@ -54,6 +55,8 @@ jobs:
 
   release:
     needs: [android, ios]
+    # APK выпускаем, даже если сборка для iOS не удалась.
+    if: ${{ always() && needs.android.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
@@ -68,3 +71,4 @@ jobs:
             Calendar.apk
             Calendar-unsigned.ipa
           make_latest: true
+          fail_on_unmatched_files: false
