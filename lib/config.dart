@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 /// Ключи сервера. Это не секреты: доступ к данным защищают правила
 /// Firestore (firestore.rules), а загрузку в Cloudinary — unsigned-пресет.
 class AppConfig {
-  static const cloudinaryCloudName = '';
+  static const cloudinaryCloudName = 'hsg8tftx';
   static const cloudinaryUploadPreset = 'calendar';
 
   /// Web client ID из google-services.json (client_type 3) — нужен для
