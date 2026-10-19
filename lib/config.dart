@@ -9,7 +9,8 @@ class AppConfig {
 
   /// Web client ID из google-services.json (client_type 3) — нужен для
   /// входа через Google на Android.
-  static const googleServerClientId = '';
+  static const googleServerClientId =
+      '796050138013-rf1ovdpj77orfi0v4df48qpaa83vmlsb.apps.googleusercontent.com';
 
   /// CLIENT_ID из GoogleService-Info.plist — вход через Google на iOS.
   static const googleIosClientId =
