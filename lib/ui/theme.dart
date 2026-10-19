@@ -1,22 +1,15 @@
 import 'package:flutter/material.dart';
 
-import '../data/models.dart';
-
 class AppColors {
   static const turquoise = Color(0xFF3FA9A0);
   static const turquoiseLight = Color(0xFFD9F3F0);
   static const turquoiseDarkBg = Color(0xFF1C3533);
   static const text = Color(0xFF1F2D2C);
-  static const moodGood = Color(0xFF5CC48A);
-  static const moodNeutral = Color(0xFFFFFFFF);
-  static const moodBad = Color(0xFFE06B6B);
 }
 
-Color moodColor(Mood m) => switch (m) {
-  Mood.good => AppColors.moodGood,
-  Mood.neutral => AppColors.moodNeutral,
-  Mood.bad => AppColors.moodBad,
-};
+/// Цвет текста, читаемый на фоне текстовой сторис.
+Color onTextStory(Color bg) =>
+    bg.computeLuminance() > 0.45 ? AppColors.text : Colors.white;
 
 ThemeData buildTheme(Brightness b) {
   final dark = b == Brightness.dark;
@@ -94,35 +87,3 @@ ThemeData buildTheme(Brightness b) {
     ),
   );
 }
-
-/// Цвет и значок шаблона пометки.
-({Color color, IconData icon}) noteStyle(NoteTemplate t) => switch (t) {
-  NoteTemplate.moment => (
-    color: const Color(0xFF9FE0D9),
-    icon: Icons.bolt_outlined,
-  ),
-  NoteTemplate.thought => (
-    color: const Color(0xFFD7C4F2),
-    icon: Icons.psychology_outlined,
-  ),
-  NoteTemplate.gratitude => (
-    color: const Color(0xFFF6E7B8),
-    icon: Icons.volunteer_activism_outlined,
-  ),
-  NoteTemplate.joy => (
-    color: const Color(0xFFFFD1B8),
-    icon: Icons.sentiment_satisfied_alt_outlined,
-  ),
-  NoteTemplate.quote => (
-    color: const Color(0xFFCFE0F5),
-    icon: Icons.format_quote_outlined,
-  ),
-  NoteTemplate.plan => (
-    color: const Color(0xFFBFE8C9),
-    icon: Icons.event_outlined,
-  ),
-  NoteTemplate.free => (
-    color: const Color(0xFFE6ECEB),
-    icon: Icons.edit_note_outlined,
-  ),
-};

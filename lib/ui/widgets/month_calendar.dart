@@ -224,9 +224,7 @@ class _DayCell extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final posts = s.postsOfDay(ownerId, day);
     final stories = posts.whereType<Story>().toList();
-    final hasPlan = posts.any(
-      (p) => p is Note && p.template == NoteTemplate.plan,
-    );
+    final hasPlan = posts.any((p) => p is Plan);
     final hasOther = posts.isNotEmpty;
     final radius = BorderRadius.circular(size * 0.22);
     final hasStory = stories.isNotEmpty;

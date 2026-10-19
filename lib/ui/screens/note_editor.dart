@@ -4,39 +4,36 @@ import 'package:provider/provider.dart';
 import '../../data/app_state.dart';
 import '../../data/models.dart';
 import '../../l10n.dart';
-import '../../services/media_picker.dart';
 import '../../services/reminder_service.dart';
-import '../widgets/common.dart';
 import '../theme.dart';
+import '../widgets/common.dart';
 
-Future<void> openNoteEditor(
-  BuildContext context, {
-  DateTime? day,
-  Note? note,
-  NoteTemplate? template,
-}) {
+/// Пометка: «Свободная» (текстовая сторис) или «План».
+/// Будущий день или существующий план открывают сразу план.
+Future<void> openNoteEditor(BuildContext context, {DateTime? day, Plan? plan}) {
   return Navigator.of(context).push(
     MaterialPageRoute(
       fullscreenDialog: true,
-      builder: (_) => NoteEditor(day: day, note: note, template: template),
+      builder: (_) => NoteEditor(day: day, plan: plan),
     ),
   );
 }
 
 class NoteEditor extends StatefulWidget {
-  const NoteEditor({super.key, this.day, this.note, this.template});
+  const NoteEditor({super.key, this.day, this.plan});
   final DateTime? day;
-  final Note? note;
-  final NoteTemplate? template;
+  final Plan? plan;
 
   @override
   State<NoteEditor> createState() => _NoteEditorState();
 }
 
 class _NoteEditorState extends State<NoteEditor> {
-  late NoteTemplate _template;
+  late bool _isPlan;
+  late bool _planOnly;
   late final TextEditingController _text;
-  Media? _photo;
+  Color _bg = textStoryColors.first;
+  bool _keep = true;
   late DateTime _date;
   late TimeOfDay _time;
   bool _remind = true;
@@ -47,35 +44,28 @@ class _NoteEditorState extends State<NoteEditor> {
   @override
   void initState() {
     super.initState();
-    final s = context.read<AppState>();
-    final n = widget.note;
-    _template = n?.template ?? widget.template ?? NoteTemplate.moment;
-    _text = TextEditingController(text: n?.text ?? '');
-    _photo = n?.photo;
-    final now = s.now;
-    final base = n?.planAt ?? n?.createdAt;
-    if (base != null) {
-      _date = dateOnly(base);
-      _time = TimeOfDay.fromDateTime(base);
+    final now = context.read<AppState>().now;
+    final p = widget.plan;
+    final future =
+        widget.day != null && dateOnly(widget.day!).isAfter(dateOnly(now));
+    _planOnly = p != null || future;
+    _isPlan = _planOnly;
+    _text = TextEditingController(text: p?.text ?? '');
+    if (p != null) {
+      _date = dateOnly(p.planAt);
+      _time = TimeOfDay.fromDateTime(p.planAt);
+      _remind = p.remind;
     } else {
-      _date = dateOnly(widget.day ?? now);
-      final future = _date.isAfter(dateOnly(now));
-      if (future) _template = widget.template ?? NoteTemplate.plan;
-      _time = sameDay(_date, now)
-          ? TimeOfDay.fromDateTime(now)
-          : const TimeOfDay(hour: 12, minute: 0);
-      if (_template == NoteTemplate.plan && !future) {
-        _date = dateOnly(now.add(const Duration(days: 1)));
-        _time = const TimeOfDay(hour: 10, minute: 0);
-      }
+      _date = future
+          ? dateOnly(widget.day!)
+          : dateOnly(now.add(const Duration(days: 1)));
+      _time = const TimeOfDay(hour: 10, minute: 0);
     }
-    _remind = n?.remind ?? true;
-    _audience = n?.visibility ?? _defaultAudience(_template);
-    _audienceTouched = n != null;
+    _audience = p?.visibility ?? _defaultAudience();
+    _audienceTouched = p != null;
   }
 
-  Audience _defaultAudience(NoteTemplate t) =>
-      t == NoteTemplate.plan ? Audience.onlyMe : Audience.everyone;
+  Audience _defaultAudience() => _isPlan ? Audience.onlyMe : Audience.everyone;
 
   @override
   void dispose() {
@@ -85,23 +75,13 @@ class _NoteEditorState extends State<NoteEditor> {
 
   DateTime get _at =>
       DateTime(_date.year, _date.month, _date.day, _time.hour, _time.minute);
-  bool get _isPlan => _template == NoteTemplate.plan;
-
-  Future<void> _pickPhoto() async {
-    try {
-      final m = await MediaPicker().image();
-      if (m != null) setState(() => _photo = m);
-    } catch (_) {
-      if (mounted) showSnack(context, context.t('pickFailed'));
-    }
-  }
 
   Future<void> _pickDate() async {
     final s = context.read<AppState>();
     final d = await showDatePicker(
       context: context,
       initialDate: _date,
-      firstDate: DateTime(2000),
+      firstDate: _date.isBefore(dateOnly(s.now)) ? _date : dateOnly(s.now),
       lastDate: DateTime(s.now.year + 10),
     );
     if (d != null) setState(() => _date = d);
@@ -120,36 +100,41 @@ class _NoteEditorState extends State<NoteEditor> {
       setState(() => _error = context.t('emptyText'));
       return;
     }
-    if (_isPlan && _remind && !_at.isAfter(s.now)) {
+    if (!_isPlan) {
+      s.createTextStory(
+        text: text,
+        background: _bg,
+        visibility: _audience,
+        keepInCalendar: _keep,
+      );
+      showSnack(context, context.t('storyPublished'));
+      Navigator.pop(context);
+      return;
+    }
+    if (_remind && !_at.isAfter(s.now)) {
       setState(() => _error = context.t('planInPast'));
       return;
     }
     final title = context.t('planReminderTitle');
-    Note note;
-    if (widget.note == null) {
-      note = s.createNote(
-        template: _template,
+    Plan plan;
+    if (widget.plan == null) {
+      plan = s.createPlan(
         text: text,
-        photo: _photo,
-        at: _isPlan ? s.now : _at,
-        planAt: _isPlan ? _at : null,
+        planAt: _at,
         remind: _remind,
         visibility: _audience,
       );
     } else {
-      note = widget.note!;
-      s.updateNote(note, (n) {
-        n
-          ..template = _template
+      plan = widget.plan!;
+      s.updatePlan(plan, (p) {
+        p
           ..text = text
-          ..photo = _photo
-          ..planAt = _isPlan ? _at : null
-          ..remind = _isPlan && _remind
+          ..planAt = _at
+          ..remind = _remind
           ..visibility = _audience;
-        if (!_isPlan) n.createdAt = _at;
       });
     }
-    await reminders.schedulePlan(note, title);
+    await reminders.schedulePlan(plan, title);
     if (mounted) Navigator.pop(context);
   }
 
@@ -158,24 +143,24 @@ class _NoteEditorState extends State<NoteEditor> {
     final reminders = context.read<ReminderService>();
     if (!await confirm(
       context,
-      context.t('deleteNoteQ'),
+      context.t('deletePlanQ'),
       ok: context.t('delete'),
     )) {
       return;
     }
-    await reminders.cancelPlan(widget.note!);
-    s.deletePost(widget.note!);
+    await reminders.cancelPlan(widget.plan!);
+    s.deletePost(widget.plan!);
     if (mounted) Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
-    final st = noteStyle(_template);
+    final fg = onTextStory(_bg);
     return Scaffold(
       appBar: AppBar(
-        title: Text(context.t(widget.note == null ? 'newNote' : 'editNote')),
+        title: Text(context.t(widget.plan == null ? 'createNote' : 'notePlan')),
         actions: [
-          if (widget.note != null)
+          if (widget.plan != null)
             IconButton(
               tooltip: context.t('delete'),
               onPressed: _delete,
@@ -186,7 +171,7 @@ class _NoteEditorState extends State<NoteEditor> {
             child: FilledButton(
               key: const Key('saveNote'),
               onPressed: _save,
-              child: Text(context.t('save')),
+              child: Text(context.t(_isPlan ? 'save' : 'publish')),
             ),
           ),
         ],
@@ -194,87 +179,127 @@ class _NoteEditorState extends State<NoteEditor> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final t in NoteTemplate.values)
-                ChoiceChip(
-                  avatar: Icon(noteStyle(t).icon, size: 16),
-                  label: Text(templateLabel(context, t)),
-                  selected: _template == t,
-                  selectedColor: noteStyle(t).color,
-                  onSelected: (_) => setState(() {
-                    final wasPlan = _isPlan;
-                    _template = t;
-                    if (!_audienceTouched) _audience = _defaultAudience(t);
-                    final now = context.read<AppState>().now;
-                    if (_isPlan && !wasPlan && !_at.isAfter(now)) {
-                      _date = dateOnly(now.add(const Duration(days: 1)));
-                      _time = const TimeOfDay(hour: 10, minute: 0);
-                    }
-                  }),
+          if (!_planOnly) ...[
+            SegmentedButton<bool>(
+              showSelectedIcon: false,
+              segments: [
+                ButtonSegment(
+                  value: false,
+                  icon: const Icon(Icons.text_fields),
+                  label: Text(context.t('noteFree')),
                 ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Container(
-            decoration: BoxDecoration(
-              color: st.color,
-              borderRadius: BorderRadius.circular(16),
+                ButtonSegment(
+                  value: true,
+                  icon: const Icon(Icons.event_outlined),
+                  label: Text(context.t('notePlan')),
+                ),
+              ],
+              selected: {_isPlan},
+              onSelectionChanged: (v) => setState(() {
+                _isPlan = v.first;
+                _error = null;
+                if (!_audienceTouched) _audience = _defaultAudience();
+              }),
             ),
-            padding: const EdgeInsets.all(4),
-            child: TextField(
+            const SizedBox(height: 16),
+          ],
+          if (!_isPlan) ...[
+            AspectRatio(
+              aspectRatio: 4 / 5,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: _bg,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                padding: const EdgeInsets.all(20),
+                alignment: Alignment.center,
+                child: TextField(
+                  key: const Key('noteText'),
+                  controller: _text,
+                  maxLength: maxNoteLength,
+                  maxLines: null,
+                  autofocus: true,
+                  textAlign: TextAlign.center,
+                  textCapitalization: TextCapitalization.sentences,
+                  style: TextStyle(
+                    color: fg,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                  ),
+                  cursorColor: fg,
+                  decoration: InputDecoration(
+                    hintText: context.t('noteFreeHint'),
+                    hintStyle: TextStyle(color: fg.withValues(alpha: 0.6)),
+                    filled: false,
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    counterStyle: TextStyle(color: fg.withValues(alpha: 0.7)),
+                  ),
+                  onChanged: (_) {
+                    if (_error != null) setState(() => _error = null);
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                for (final c in textStoryColors)
+                  GestureDetector(
+                    onTap: () => setState(() => _bg = c),
+                    child: Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        color: c,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: c == _bg
+                              ? Theme.of(context).colorScheme.onSurface
+                              : Theme.of(context).colorScheme.outlineVariant,
+                          width: c == _bg ? 3 : 1,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              context.t('textStoryHelp'),
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontSize: 12,
+              ),
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              value: _keep,
+              onChanged: (v) => setState(() => _keep = v),
+              title: Text(context.t('keepInCalendar')),
+            ),
+          ] else ...[
+            TextField(
               key: const Key('noteText'),
               controller: _text,
               maxLength: maxNoteLength,
-              maxLines: 6,
               minLines: 3,
-              autofocus: widget.note == null,
-              style: const TextStyle(color: AppColors.text, fontSize: 17),
-              decoration: InputDecoration(
-                hintText: templateHint(context, _template),
-                fillColor: Colors.transparent,
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                counterStyle: const TextStyle(color: AppColors.text),
-              ),
+              maxLines: 6,
+              autofocus: widget.plan == null,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: InputDecoration(hintText: context.t('notePlanHint')),
               onChanged: (_) {
                 if (_error != null) setState(() => _error = null);
               },
             ),
-          ),
-          if (_error != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(
-                _error!,
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
-              ),
-            ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              if (_photo != null) ...[
-                MediaThumb(media: _photo!, size: 64),
-                const SizedBox(width: 8),
-                TextButton(
-                  onPressed: () => setState(() => _photo = null),
-                  child: Text(context.t('removePhoto')),
-                ),
-              ] else
-                OutlinedButton.icon(
-                  onPressed: _pickPhoto,
-                  icon: const Icon(Icons.image_outlined),
-                  label: Text(context.t('addPhoto')),
-                ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              if (_isPlan) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: _pickDate,
@@ -283,23 +308,30 @@ class _NoteEditorState extends State<NoteEditor> {
                   ),
                 ),
                 const SizedBox(width: 8),
-              ],
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: _pickTime,
-                  icon: const Icon(Icons.schedule),
-                  label: Text(_time.format(context)),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _pickTime,
+                    icon: const Icon(Icons.schedule),
+                    label: Text(_time.format(context)),
+                  ),
                 ),
-              ),
-            ],
-          ),
-          if (_isPlan)
+              ],
+            ),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               value: _remind,
               onChanged: (v) => setState(() => _remind = v),
               title: Text(context.t('remind')),
               secondary: const Icon(Icons.notifications_active_outlined),
+            ),
+          ],
+          if (_error != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                _error!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
             ),
           const SizedBox(height: 8),
           AudiencePicker(

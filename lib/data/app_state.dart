@@ -250,24 +250,26 @@ class AppState extends ChangeNotifier {
     return list;
   }
 
-  DateTime _sortTime(Post p) => p is Note && p.planAt != null
-      ? p.planAt!
-      : (p is DiaryEntry
-            ? DateTime(p.date.year, p.date.month, p.date.day)
-            : p.createdAt);
+  DateTime _sortTime(Post p) => p is Plan ? p.planAt : p.createdAt;
 
   List<Story> storiesOfDay(String owner, DateTime day, {String? viewer}) =>
       postsOfDay(owner, day, viewer: viewer).whereType<Story>().toList();
 
-  DiaryEntry? diaryOf(String owner, DateTime day, {String? viewer}) {
-    for (final p in postsOfDay(owner, day, viewer: viewer)) {
-      if (p is DiaryEntry) return p;
-    }
-    return null;
-  }
+  /// Посты дневника за день, по времени.
+  List<DiaryPost> diaryOf(String owner, DateTime day, {String? viewer}) =>
+      postsOfDay(owner, day, viewer: viewer).whereType<DiaryPost>().toList();
 
-  List<Note> notesOfDay(String owner, DateTime day, {String? viewer}) =>
-      postsOfDay(owner, day, viewer: viewer).whereType<Note>().toList();
+  List<Plan> plansOfDay(String owner, DateTime day, {String? viewer}) =>
+      postsOfDay(owner, day, viewer: viewer).whereType<Plan>().toList();
+
+  /// Дни, в которые в дневнике пользователя есть видимые посты.
+  List<DateTime> diaryDays(String owner, {String? viewer}) {
+    final v = viewer ?? currentUserId!;
+    return {
+      for (final p in posts)
+        if (p is DiaryPost && p.authorId == owner && canSee(p, v)) p.day,
+    }.toList()..sort();
+  }
 
   /// Лента: сначала свежее от подписок и подписчиков, потом от остальных.
   List<Post> feed() {
@@ -279,7 +281,7 @@ class AppState extends ChangeNotifier {
       if (hiddenPostIds.contains(p.id)) return false;
       if (!canSee(p, me)) return false;
       if (p is Story) return p.isActiveAt(t);
-      if (p is Note && p.template == NoteTemplate.plan) return false;
+      if (p is Plan) return false;
       return t.difference(p.createdAt) < const Duration(days: 7) &&
           !p.createdAt.isAfter(t);
     }).toList();
@@ -323,7 +325,7 @@ class AppState extends ChangeNotifier {
   int streak(String owner) {
     final days = {
       for (final p in posts)
-        if (p.authorId == owner && !(p is Note && p.planAt != null)) p.day,
+        if (p.authorId == owner && p is! Plan) p.day,
     };
     var d = dateOnly(now);
     if (!days.contains(d)) d = d.subtract(const Duration(days: 1));
@@ -438,86 +440,92 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  Note createNote({
-    required NoteTemplate template,
+  /// «Свободная» пометка — текстовая сторис на цветном фоне.
+  Story createTextStory({
     required String text,
-    Media? photo,
-    DateTime? at,
-    DateTime? planAt,
-    bool remind = false,
-    Audience? visibility,
+    required Color background,
+    Audience visibility = Audience.everyone,
+    bool keepInCalendar = true,
   }) {
-    final n = Note(
+    final st = Story(
       id: newId(),
       authorId: currentUserId!,
-      createdAt: at ?? now,
-      visibility:
-          visibility ??
-          (template == NoteTemplate.plan ? Audience.onlyMe : Audience.everyone),
-      template: template,
-      text: text.length > maxNoteLength
-          ? text.substring(0, maxNoteLength)
-          : text,
-      photo: photo,
-      planAt: template == NoteTemplate.plan ? planAt : null,
-      remind: template == NoteTemplate.plan && remind,
+      createdAt: now,
+      visibility: visibility,
+      media: Media(
+        type: MediaType.image,
+        placeholder: [background, background],
+      ),
+      text: _clip(text.trim()),
+      keepInCalendar: keepInCalendar,
     );
-    posts.add(n);
+    posts.add(st);
     notifyListeners();
-    return n;
+    return st;
   }
 
-  void updateNote(Note n, void Function(Note) change) {
-    change(n);
-    if (n.text.length > maxNoteLength) {
-      n.text = n.text.substring(0, maxNoteLength);
-    }
-    notifyListeners();
-  }
-
-  /// Дневник: одна запись на день. Если запись уже есть — обновляется.
-  DiaryEntry saveDiary({
-    required DateTime date,
+  Plan createPlan({
     required String text,
-    Mood? mood,
-    required List<Media> photos,
-    required List<String> tags,
-    Weather? weather,
-    required Audience visibility,
+    required DateTime planAt,
+    bool remind = true,
+    Audience visibility = Audience.onlyMe,
   }) {
-    final d = dateOnly(date);
-    DiaryEntry? e;
-    for (final p in posts) {
-      if (p is DiaryEntry &&
-          p.authorId == currentUserId &&
-          sameDay(p.date, d)) {
-        e = p;
-        break;
-      }
-    }
-    if (e == null) {
-      e = DiaryEntry(
-        id: newId(),
-        authorId: currentUserId!,
-        createdAt: now,
-        visibility: visibility,
-        date: d,
-      );
-      posts.add(e);
-    }
-    e
-      ..text = text
-      ..mood = mood
-      ..weather = weather ?? e.weather
-      ..visibility = visibility;
-    e.photos
-      ..clear()
-      ..addAll(photos);
-    e.tags
-      ..clear()
-      ..addAll(tags.map(normalizeTag).where((t) => t.length > 1).toSet());
+    final pl = Plan(
+      id: newId(),
+      authorId: currentUserId!,
+      createdAt: now,
+      visibility: visibility,
+      text: _clip(text.trim()),
+      planAt: planAt,
+      remind: remind,
+    );
+    posts.add(pl);
     notifyListeners();
-    return e;
+    return pl;
+  }
+
+  void updatePlan(Plan pl, void Function(Plan) change) {
+    change(pl);
+    pl.text = _clip(pl.text);
+    notifyListeners();
+  }
+
+  String _clip(String t) =>
+      t.length > maxNoteLength ? t.substring(0, maxNoteLength) : t;
+
+  /// Новый пост в дневник дня.
+  DiaryPost? addDiaryPost({
+    required DateTime date,
+    String text = '',
+    List<Media> photos = const [],
+    Weather? weather,
+    Audience visibility = Audience.everyone,
+  }) {
+    if (text.trim().isEmpty && photos.isEmpty) return null;
+    final d = dateOnly(date);
+    final t = now;
+    // В прошлый день пишем «задним числом», но с текущим временем суток.
+    final at = sameDay(d, t)
+        ? t
+        : DateTime(d.year, d.month, d.day, t.hour, t.minute, t.second);
+    final p = DiaryPost(
+      id: newId(),
+      authorId: currentUserId!,
+      createdAt: at,
+      visibility: visibility,
+      date: d,
+      text: text.trim(),
+      photos: [...photos],
+      weather: weather,
+    );
+    posts.add(p);
+    notifyListeners();
+    return p;
+  }
+
+  void editDiaryPost(DiaryPost p, String text) {
+    p.text = text.trim();
+    notifyListeners();
   }
 
   void deletePost(Post p) {
@@ -533,13 +541,13 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  List<DiaryEntry> searchDiaryByTag(String tag) {
+  List<DiaryPost> searchDiaryByTag(String tag) {
     final t = normalizeTag(tag);
     return posts
-        .whereType<DiaryEntry>()
+        .whereType<DiaryPost>()
         .where((e) => e.authorId == currentUserId && e.tags.contains(t))
         .toList()
-      ..sort((a, b) => b.date.compareTo(a.date));
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
   }
 
   // ---------- Реакции ----------

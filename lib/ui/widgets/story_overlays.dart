@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../data/models.dart';
+import '../theme.dart';
+import 'media_view.dart';
 
 const storyFonts = <TextStyle>[
   TextStyle(fontWeight: FontWeight.w700),
@@ -126,4 +128,82 @@ class _OverlayLabel extends StatelessWidget {
     );
     return Text(o.text, textAlign: TextAlign.center, style: style);
   }
+}
+
+/// Текст «свободной» пометки поверх её цветного фона.
+class TextStoryView extends StatelessWidget {
+  const TextStoryView({super.key, required this.story, this.compact = false});
+  final Story story;
+
+  /// Для маленьких превью: мелкий текст в несколько строк.
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = onTextStory(story.background);
+    if (compact) {
+      return Padding(
+        padding: const EdgeInsets.all(4),
+        child: Center(
+          child: Text(
+            story.text!,
+            maxLines: 5,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: color,
+              fontSize: 8,
+              fontWeight: FontWeight.w700,
+              height: 1.15,
+            ),
+          ),
+        ),
+      );
+    }
+    final len = story.text!.length;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(28, 90, 28, 90),
+        child: Text(
+          story.text!,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: color,
+            fontSize: len < 60 ? 32 : (len < 160 ? 25 : 20),
+            fontWeight: FontWeight.w800,
+            height: 1.25,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Превью сторис: медиа, а для текстовой — ещё и сам текст.
+class StoryThumb extends StatelessWidget {
+  const StoryThumb({
+    super.key,
+    required this.story,
+    required this.size,
+    this.radius = 14,
+  });
+  final Story story;
+  final double size;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    width: size,
+    height: size,
+    child: ClipRRect(
+      borderRadius: BorderRadius.circular(radius),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          MediaView(media: story.media, thumbnail: true),
+          if (story.isText) TextStoryView(story: story, compact: true),
+        ],
+      ),
+    ),
+  );
 }

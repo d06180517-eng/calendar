@@ -3,31 +3,27 @@ import 'package:provider/provider.dart';
 
 import '../../data/app_state.dart';
 import '../../l10n.dart';
-import '../widgets/day_panel.dart';
+import 'diary_screen.dart';
 
-/// Мои записи дневника с выбранным тегом.
+/// Мои посты дневника с выбранным тегом.
 class TagScreen extends StatelessWidget {
   const TagScreen({super.key, required this.tag});
   final String tag;
 
   @override
   Widget build(BuildContext context) {
-    final entries = context.watch<AppState>().searchDiaryByTag(tag);
+    final s = context.watch<AppState>();
+    final posts = s.searchDiaryByTag(tag);
     return Scaffold(
       appBar: AppBar(title: Text(context.t('byTag', {'tag': tag}))),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
         children: [
-          for (final e in entries) ...[
-            Padding(
-              padding: const EdgeInsets.only(top: 12, bottom: 2),
-              child: Text(
-                capitalize(formatDateFull(context, e.date)),
-                style: const TextStyle(fontWeight: FontWeight.w700),
-              ),
+          for (final p in posts)
+            GestureDetector(
+              onTap: () => openDiary(context, p.authorId, p.date),
+              child: DiaryPostBubble(post: p, showDate: true),
             ),
-            DiaryCard(entry: e),
-          ],
         ],
       ),
     );

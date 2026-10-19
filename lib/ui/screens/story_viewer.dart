@@ -245,6 +245,7 @@ class _StoryViewerState extends State<StoryViewer>
                           onProgress: (p) => setState(() => _videoProgress = p),
                           onFinished: _next,
                         ),
+                        if (story.isText) TextStoryView(story: story),
                         StoryOverlays(
                           overlays: story.overlays,
                           onMentionTap: (id) => openProfile(context, id),

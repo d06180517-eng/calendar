@@ -10,9 +10,10 @@ import '../screens/note_editor.dart';
 import '../screens/story_viewer.dart';
 import '../theme.dart';
 import 'common.dart';
+import 'story_overlays.dart';
 
-/// Выбранный день: сторис, дневник и пометки. Своё можно править,
-/// у других — только смотреть открытое.
+/// Выбранный день: сторис (и текстовые), планы и дневник-канал.
+/// Своё можно дописывать, у других — только смотреть открытое.
 class DayPanel extends StatelessWidget {
   const DayPanel({super.key, required this.ownerId, required this.day});
   final String ownerId;
@@ -24,9 +25,14 @@ class DayPanel extends StatelessWidget {
     final own = ownerId == s.currentUserId;
     final stories = s.storiesOfDay(ownerId, day);
     final diary = s.diaryOf(ownerId, day);
-    final notes = s.notesOfDay(ownerId, day);
-    final future = dateOnly(day).isAfter(dateOnly(s.now));
+    final plans = s.plansOfDay(ownerId, day);
+    final today = dateOnly(s.now);
+    final future = dateOnly(day).isAfter(today);
     final text = Theme.of(context).textTheme;
+    final weather = diary
+        .map((p) => p.weather)
+        .whereType<Weather>()
+        .firstOrNull;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -43,8 +49,8 @@ class DayPanel extends StatelessWidget {
                   ),
                 ),
               ),
-              if (diary?.weather != null)
-                Text(formatWeather(diary!.weather!), style: text.titleSmall),
+              if (weather != null)
+                Text(formatWeather(weather), style: text.titleSmall),
             ],
           ),
           const SizedBox(height: 10),
@@ -59,7 +65,7 @@ class DayPanel extends StatelessWidget {
                   onTap: () => openStories(context, stories, start: i),
                   child: Stack(
                     children: [
-                      MediaThumb(media: stories[i].media, size: 68, radius: 14),
+                      StoryThumb(story: stories[i], size: 68),
                       if (own && stories[i].visibility != Audience.everyone)
                         Positioned(
                           right: 4,
@@ -76,25 +82,49 @@ class DayPanel extends StatelessWidget {
               ),
             ),
           ],
-          if (diary != null)
-            DiaryCard(entry: diary)
-          else if (own && !future)
-            _AddButton(
-              key: const Key('writeDiary'),
-              icon: Icons.menu_book_outlined,
-              label: context.t('writeAboutDay'),
-              onTap: () => openDiary(context, day),
-            ),
-          const SizedBox(height: 8),
-          for (final n in notes) NoteTile(note: n),
-          if (own)
+          for (final p in plans) PlanTile(plan: p),
+          if (own && !dateOnly(day).isBefore(today))
             _AddButton(
               key: const Key('addNote'),
-              icon: Icons.add,
-              label: context.t('addNote'),
+              icon: future ? Icons.event_outlined : Icons.add,
+              label: context.t(future ? 'notePlan' : 'addNote'),
               onTap: () => openNoteEditor(context, day: day),
             ),
-          if (!own && stories.isEmpty && diary == null && notes.isEmpty)
+          if (!future) ...[
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                const Icon(Icons.menu_book_outlined, size: 20),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    context.t('diaryDay'),
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+                if (diary.isNotEmpty)
+                  Text(
+                    context.t('postsCount', {'n': '${diary.length}'}),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontSize: 12,
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            for (final p
+                in diary.length > 3 ? diary.sublist(diary.length - 3) : diary)
+              DiaryPostBubble(post: p, compact: true),
+            if (own || diary.isNotEmpty)
+              _AddButton(
+                key: const Key('openDiary'),
+                icon: own ? Icons.edit_outlined : Icons.menu_book_outlined,
+                label: context.t(own ? 'diaryWrite' : 'openDiary'),
+                onTap: () => openDiary(context, ownerId, day),
+              ),
+          ],
+          if (!own && stories.isEmpty && diary.isEmpty && plans.isEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 24),
               child: Text(
@@ -154,164 +184,59 @@ class _AddButton extends StatelessWidget {
   }
 }
 
-class DiaryCard extends StatelessWidget {
-  const DiaryCard({super.key, required this.entry});
-  final DiaryEntry entry;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final moodC = entry.mood == null ? null : moodColor(entry.mood!);
-    return Padding(
-      padding: const EdgeInsets.only(top: 6),
-      child: Material(
-        color: scheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(14),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: () => openDiary(context, entry.date, entry: entry),
-          child: Container(
-            decoration: BoxDecoration(
-              border: Border(
-                left: BorderSide(
-                  color: moodC == null || entry.mood == Mood.neutral
-                      ? scheme.outlineVariant
-                      : moodC,
-                  width: 5,
-                ),
-              ),
-            ),
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.menu_book_outlined, size: 18),
-                    const SizedBox(width: 6),
-                    Text(
-                      context.t('diary'),
-                      style: const TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                    const SizedBox(width: 6),
-                    Icon(
-                      audienceIcon(entry.visibility),
-                      size: 14,
-                      color: scheme.onSurfaceVariant,
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        entry.tags.join(' '),
-                        textAlign: TextAlign.end,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppColors.turquoise,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                if (entry.text.isNotEmpty) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    entry.text,
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-                if (entry.photos.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    height: 48,
-                    child: ListView(
-                      scrollDirection: Axis.horizontal,
-                      children: [
-                        for (final p in entry.photos)
-                          Padding(
-                            padding: const EdgeInsets.only(right: 6),
-                            child: MediaThumb(media: p, size: 48, radius: 8),
-                          ),
-                      ],
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class NoteTile extends StatelessWidget {
-  const NoteTile({super.key, required this.note});
-  final Note note;
+class PlanTile extends StatelessWidget {
+  const PlanTile({super.key, required this.plan});
+  final Plan plan;
 
   @override
   Widget build(BuildContext context) {
     final s = context.read<AppState>();
-    final own = note.authorId == s.currentUserId;
+    final own = plan.authorId == s.currentUserId;
     final scheme = Theme.of(context).colorScheme;
-    final time = note.planAt ?? note.createdAt;
     return Padding(
       padding: const EdgeInsets.only(top: 6),
       child: Material(
-        color: scheme.surfaceContainerHighest,
+        color: scheme.primaryContainer,
         borderRadius: BorderRadius.circular(14),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
-          onTap: own ? () => openNoteEditor(context, note: note) : null,
+          onTap: own ? () => openNoteEditor(context, plan: plan) : null,
           child: Padding(
             padding: const EdgeInsets.all(12),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Icon(
+                  plan.remind
+                      ? Icons.notifications_active_outlined
+                      : Icons.event_outlined,
+                  size: 20,
+                  color: AppColors.turquoise,
+                ),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          NoteChip(template: note.template),
-                          const SizedBox(width: 8),
-                          Text(
-                            hhmm(time),
-                            style: TextStyle(
-                              color: scheme.onSurfaceVariant,
-                              fontSize: 12,
-                            ),
-                          ),
-                          if (note.remind) ...[
-                            const SizedBox(width: 4),
-                            const Icon(
-                              Icons.notifications_active_outlined,
-                              size: 14,
-                              color: AppColors.turquoise,
-                            ),
-                          ],
-                          if (own) ...[
-                            const SizedBox(width: 6),
-                            Icon(
-                              audienceIcon(note.visibility),
-                              size: 14,
-                              color: scheme.onSurfaceVariant,
-                            ),
-                          ],
-                        ],
+                      Text(
+                        '${context.t('notePlan')} · ${hhmm(plan.planAt)}',
+                        style: TextStyle(
+                          color: scheme.onSurfaceVariant,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                      const SizedBox(height: 6),
-                      Text(note.text),
+                      const SizedBox(height: 4),
+                      Text(plan.text),
                     ],
                   ),
                 ),
-                if (note.photo != null) ...[
-                  const SizedBox(width: 10),
-                  MediaThumb(media: note.photo!, size: 52),
-                ],
+                if (own)
+                  Icon(
+                    audienceIcon(plan.visibility),
+                    size: 14,
+                    color: scheme.onSurfaceVariant,
+                  ),
               ],
             ),
           ),

@@ -112,46 +112,51 @@ void seedDemo(AppState s) {
     return st;
   }
 
-  Note note(
-    String author,
-    DateTime at,
-    NoteTemplate t,
-    String text, {
-    Audience v = Audience.everyone,
-    DateTime? planAt,
-  }) {
-    final n = Note(
+  Story textStory(String author, DateTime at, String text, int color) {
+    final st = Story(
       id: newId(),
       authorId: author,
       createdAt: at,
-      visibility: planAt != null ? Audience.onlyMe : v,
-      template: t,
+      visibility: Audience.everyone,
+      media: Media(
+        type: MediaType.image,
+        placeholder: [textStoryColors[color], textStoryColors[color]],
+      ),
       text: text,
-      planAt: planAt,
-      remind: planAt != null,
     );
-    s.posts.add(n);
-    return n;
+    s.posts.add(st);
+    return st;
   }
 
-  DiaryEntry diary(
-    String author,
-    DateTime day,
-    String text, {
-    Mood? mood,
-    List<String> tags = const [],
-    Audience v = Audience.onlyMe,
-    Weather? w,
-  }) {
-    final e = DiaryEntry(
+  Plan plan(String author, DateTime at, String text) {
+    final pl = Plan(
       id: newId(),
       authorId: author,
-      createdAt: DateTime(day.year, day.month, day.day, 22),
-      visibility: v,
-      date: day,
+      createdAt: now,
+      visibility: Audience.onlyMe,
       text: text,
-      mood: mood,
-      tags: tags,
+      planAt: at,
+    );
+    s.posts.add(pl);
+    return pl;
+  }
+
+  DiaryPost diary(
+    String author,
+    DateTime at,
+    String text, {
+    Audience v = Audience.everyone,
+    Weather? w,
+    int photos = 0,
+  }) {
+    final e = DiaryPost(
+      id: newId(),
+      authorId: author,
+      createdAt: at,
+      visibility: v,
+      date: dateOnly(at),
+      text: text,
+      photos: [for (var i = 0; i < photos; i++) demoMedia(g++)],
       weather: w,
     );
     s.posts.add(e);
@@ -172,58 +177,51 @@ void seedDemo(AppState s) {
     if (d % 3 == 0) continue;
     story('me', ago(d, 9 + d % 10), caption: myCaptions[d % myCaptions.length]);
     if (d % 4 == 1) {
-      note(
-        'me',
-        ago(d, 14, 30),
-        NoteTemplate.moment,
-        'Поймал себя на мысли, что день получился хорошим',
-      );
+      textStory('me', ago(d, 14, 30), 'День получился хорошим', d % 7);
     }
     if (d % 5 == 2) {
       diary(
         'me',
-        ago(d),
-        'Спокойный день. Работал, вечером гулял по парку.',
-        mood: d % 2 == 0 ? Mood.good : Mood.neutral,
-        tags: ['#работа'],
+        ago(d, 9, 15),
+        'Утро началось с пробежки, 5 км',
         w: Weather(8 + (d % 7).toDouble(), d % 3 == 0 ? 61 : 1),
+      );
+      diary('me', ago(d, 13, 40), 'Обед с коллегами', photos: 1);
+      diary(
+        'me',
+        ago(d, 21, 5),
+        'Спокойный день. Работал, вечером гулял по парку. #работа',
+        v: Audience.onlyMe,
       );
     }
   }
   diary(
     'me',
-    ago(4),
-    'Тяжёлый день, много задач и мало сна.',
-    mood: Mood.bad,
-    tags: ['#работа'],
+    ago(4, 22),
+    'Тяжёлый день, много задач и мало сна. #работа',
+    v: Audience.onlyMe,
     w: const Weather(6, 3),
   );
-  note(
+  textStory(
     'me',
-    ago(0, 10, 47),
-    NoteTemplate.moment,
+    now.subtract(const Duration(hours: 1)),
     'Первый макет приложения готов',
+    0,
   );
-  note(
+  diary(
     'me',
-    ago(1, 19, 5),
-    NoteTemplate.gratitude,
-    'Спасибо другу, который приехал помочь с переездом',
+    now.subtract(const Duration(hours: 4)),
+    'Утро началось с пробежки 🏃',
+    w: const Weather(12, 1),
   );
-  note(
+  diary(
     'me',
-    ago(-7, 9),
-    NoteTemplate.plan,
-    'День рождения мамы, купить цветы',
-    planAt: ago(-7, 9),
+    now.subtract(const Duration(hours: 2)),
+    'Обед с Машей',
+    photos: 1,
   );
-  note(
-    'me',
-    ago(-3, 18),
-    NoteTemplate.plan,
-    'Встреча с Олегом',
-    planAt: ago(-3, 18, 30),
-  );
+  plan('me', ago(-7, 9), 'День рождения мамы, купить цветы');
+  plan('me', ago(-3, 18, 30), 'Встреча с Олегом');
 
   // Записи других людей.
   final mashaSea = story(
@@ -232,27 +230,31 @@ void seedDemo(AppState s) {
     caption: 'Утро на море',
   );
   story('masha', now.subtract(const Duration(hours: 5)));
-  final olegNote = note(
+  final olegNote = textStory(
     'oleg',
     now.subtract(const Duration(hours: 3)),
-    NoteTemplate.thought,
     'Чем проще план, тем больше шансов, что он сработает',
+    4,
   );
   story('oleg', now.subtract(const Duration(hours: 7)), caption: 'Концерт');
   final olegDiary = diary(
     'oleg',
-    dateOnly(now.subtract(const Duration(days: 1))),
-    'Сходили в поход на два дня. Ноги гудят, но это того стоило. Ночью было видно Млечный Путь.',
-    mood: Mood.good,
-    tags: ['#походы'],
-    v: Audience.everyone,
+    ago(1, 21),
+    'Сходили в поход на два дня. Ноги гудят, но это того стоило. Ночью было видно Млечный Путь. #походы',
     w: const Weather(4, 0),
+    photos: 2,
   );
-  note(
+  diary('oleg', ago(1, 8, 30), 'Выходим на маршрут, погода отличная');
+  textStory(
     'olya',
     now.subtract(const Duration(hours: 4)),
-    NoteTemplate.joy,
     'Наконец-то дочитала книгу, которую начала летом',
+    6,
+  );
+  diary(
+    'olya',
+    now.subtract(const Duration(hours: 3)),
+    'Учусь замечать хорошее: солнце, кофе, тишина',
   );
   story(
     'olya',
@@ -264,22 +266,22 @@ void seedDemo(AppState s) {
     now.subtract(const Duration(hours: 1)),
     caption: '10 км до завтрака',
   );
-  note(
+  textStory(
     'ivan',
     now.subtract(const Duration(hours: 9)),
-    NoteTemplate.quote,
     '«Дорогу осилит идущий»',
+    3,
   );
   story(
     'kate',
     now.subtract(const Duration(hours: 8)),
     caption: 'Невский в тумане',
   );
-  note(
+  diary(
     'kate',
     now.subtract(const Duration(days: 2)),
-    NoteTemplate.moment,
     'Нашла дворик, где никогда не была',
+    photos: 1,
   );
   for (var d = 1; d < 25; d += 2) {
     story('masha', ago(d, 10), caption: d % 4 == 1 ? 'Море' : null);

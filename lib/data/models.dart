@@ -3,17 +3,24 @@ import 'package:flutter/material.dart';
 /// Кому видна запись.
 enum Audience { onlyMe, followers, everyone }
 
-/// Настроение дня в дневнике (цветом, по желанию).
-enum Mood { good, neutral, bad }
-
-/// Шаблоны пометок.
-enum NoteTemplate { moment, thought, gratitude, joy, quote, plan, free }
-
 enum MediaType { image, video }
 
 /// Максимальная длина одной сторис с видео.
 const Duration maxStoryDuration = Duration(seconds: 60);
+
+/// Максимальная длина текстовой сторис и плана.
 const int maxNoteLength = 300;
+
+/// Фоны текстовых сторис («Свободная» пометка).
+const textStoryColors = <Color>[
+  Color(0xFFF4C7A1),
+  Color(0xFF9FE0D9),
+  Color(0xFF3FA9A0),
+  Color(0xFF1F2D2C),
+  Color(0xFF9AB8E8),
+  Color(0xFFE06B6B),
+  Color(0xFFD7C4F2),
+];
 
 class AppUser {
   AppUser({
@@ -114,9 +121,15 @@ class Story extends Post {
     this.groupId,
     this.partIndex = 0,
     this.partCount = 1,
+    this.text,
   });
 
   final Media media;
+
+  /// Текстовая сторис: текст на цветном фоне (фон — в media.placeholder).
+  final String? text;
+  bool get isText => text != null;
+  Color get background => media.placeholder?.first ?? textStoryColors.first;
   final List<StoryOverlay> overlays;
   bool keepInCalendar;
 
@@ -133,29 +146,24 @@ class Story extends Post {
       now.difference(createdAt) < const Duration(hours: 24);
 }
 
-class Note extends Post {
-  Note({
+/// План — пометка на будущее, с напоминанием.
+class Plan extends Post {
+  Plan({
     required super.id,
     required super.authorId,
     required super.createdAt,
     required super.visibility,
-    required this.template,
     required this.text,
-    this.photo,
-    this.planAt,
-    this.remind = false,
+    required this.planAt,
+    this.remind = true,
   });
 
-  NoteTemplate template;
   String text;
-  Media? photo;
-
-  /// Для шаблона «План»: на когда запланировано.
-  DateTime? planAt;
+  DateTime planAt;
   bool remind;
 
   @override
-  DateTime get day => dateOnly(planAt ?? createdAt);
+  DateTime get day => dateOnly(planAt);
 }
 
 class Weather {
@@ -164,31 +172,38 @@ class Weather {
   final int code;
 }
 
-class DiaryEntry extends Post {
-  DiaryEntry({
+/// Пост в дневнике дня. Дневник устроен как канал: за день сколько угодно
+/// постов, у каждого своё время.
+class DiaryPost extends Post {
+  DiaryPost({
     required super.id,
     required super.authorId,
     required super.createdAt,
     required super.visibility,
     required this.date,
     this.text = '',
-    this.mood,
     List<Media>? photos,
-    List<String>? tags,
     this.weather,
-  }) : photos = photos ?? [],
-       tags = tags ?? [];
+  }) : photos = photos ?? [];
 
+  /// День, в дневник которого написан пост.
   final DateTime date;
   String text;
-  Mood? mood;
   final List<Media> photos;
-  final List<String> tags;
   Weather? weather;
+
+  /// #теги берутся прямо из текста.
+  List<String> get tags => extractTags(text);
 
   @override
   DateTime get day => dateOnly(date);
 }
+
+final _tagRe = RegExp(r'#[\p{L}\p{N}_]+', unicode: true);
+
+List<String> extractTags(String text) =>
+    {for (final m in _tagRe.allMatches(text)) m.group(0)!.toLowerCase()}
+        .toList();
 
 class Comment {
   Comment({

@@ -138,43 +138,6 @@ IconData audienceIcon(Audience a) => switch (a) {
   Audience.everyone => Icons.public,
 };
 
-String templateLabel(BuildContext context, NoteTemplate t) =>
-    context.t('tpl_${t.name}');
-String templateHint(BuildContext context, NoteTemplate t) =>
-    context.t('tplHint_${t.name}');
-
-class NoteChip extends StatelessWidget {
-  const NoteChip({super.key, required this.template});
-  final NoteTemplate template;
-
-  @override
-  Widget build(BuildContext context) {
-    final st = noteStyle(template);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: st.color,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(st.icon, size: 14, color: AppColors.text),
-          const SizedBox(width: 4),
-          Text(
-            templateLabel(context, template),
-            style: const TextStyle(
-              fontSize: 12,
-              color: AppColors.text,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 /// Небольшая плашка-превью медиа с закруглёнными краями.
 class MediaThumb extends StatelessWidget {
   const MediaThumb({

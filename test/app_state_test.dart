@@ -95,19 +95,19 @@ void main() {
 
   group('Приватность', () {
     test('«только я» не видит никто, кроме автора', () {
-      final n = s.createNote(
-        template: NoteTemplate.moment,
+      final n = s.addDiaryPost(
+        date: fixedNow,
         text: 'секрет',
         visibility: Audience.onlyMe,
-      );
+      )!;
       expect(s.canSee(n, 'me'), isTrue);
       expect(s.canSee(n, 'masha'), isFalse);
     });
 
     test('«подписчики» видят только подписанные на автора', () {
-      final n = s.createNote(
-        template: NoteTemplate.moment,
+      final n = s.createTextStory(
         text: 'для своих',
+        background: textStoryColors.first,
         visibility: Audience.followers,
       );
       expect(s.canSee(n, 'masha'), isTrue); // masha подписана на me
@@ -115,7 +115,7 @@ void main() {
     });
 
     test('закрытый профиль: «все» значит только подписчики', () {
-      final olyaNote = s.posts.whereType<Note>().firstWhere(
+      final olyaNote = s.posts.whereType<DiaryPost>().firstWhere(
         (n) => n.authorId == 'olya',
       );
       expect(s.canSee(olyaNote, 'me'), isFalse);
@@ -177,10 +177,8 @@ void main() {
         feed.whereType<Story>().every((st) => st.isActiveAt(fixedNow)),
         isTrue,
       );
-      expect(
-        feed.whereType<Note>().any((n) => n.template == NoteTemplate.plan),
-        isFalse,
-      );
+      expect(feed.whereType<Plan>(), isEmpty);
+      expect(feed.whereType<DiaryPost>(), isNotEmpty);
       final first = feed.first;
       s.hidePost(first.id);
       expect(s.feed().contains(first), isFalse);
@@ -206,66 +204,82 @@ void main() {
   });
 
   group('Дневник и пометки', () {
-    test('одна запись дневника в день — повторное сохранение обновляет', () {
+    test('в дневник дня можно писать сколько угодно постов', () {
       final day = DateTime(2026, 10, 19);
-      s.saveDiary(
-        date: day,
-        text: 'утро',
-        photos: [],
-        tags: ['Работа'],
-        visibility: Audience.onlyMe,
-      );
-      s.saveDiary(
-        date: day.add(const Duration(hours: 20)),
-        text: 'вечер',
-        mood: Mood.good,
-        photos: [img(), img()],
-        tags: ['#работа', 'спорт', ' '],
-        visibility: Audience.everyone,
-      );
-      final entries = s.posts
-          .whereType<DiaryEntry>()
-          .where((e) => e.authorId == 'me' && sameDay(e.date, day))
-          .toList();
-      expect(entries.length, 1);
-      expect(entries.single.text, 'вечер');
-      expect(entries.single.tags, ['#работа', '#спорт']);
-      expect(entries.single.photos.length, 2);
-      expect(s.searchDiaryByTag('спорт').single, entries.single);
+      s.posts.removeWhere((p) => p is DiaryPost && p.authorId == 'me');
+      s.addDiaryPost(date: day, text: 'утро');
+      s.addDiaryPost(date: day, text: 'обед', photos: [img()]);
+      s.addDiaryPost(date: day, text: 'вечер #Работа и #спорт');
+      final posts = s.diaryOf('me', day);
+      expect(posts.map((p) => p.text.split(' ').first), [
+        'утро',
+        'обед',
+        'вечер',
+      ]);
+      expect(posts.last.tags, ['#работа', '#спорт']);
+      expect(s.searchDiaryByTag('спорт').single, posts.last);
+      expect(posts.every((p) => p.visibility == Audience.everyone), isTrue);
     });
 
-    test('пометка обрезается до 300 символов', () {
-      final n = s.createNote(template: NoteTemplate.free, text: 'а' * 400);
-      expect(n.text.length, maxNoteLength);
+    test('пустой пост не публикуется', () {
+      expect(s.addDiaryPost(date: fixedNow, text: '   '), isNull);
+    });
+
+    test('пост в прошлый день остаётся в том дне', () {
+      final past = DateTime(2026, 10, 10);
+      final p = s.addDiaryPost(date: past, text: 'вспомнил')!;
+      expect(sameDay(p.createdAt, past), isTrue);
+      expect(s.diaryOf('me', past).contains(p), isTrue);
+      expect(s.diaryDays('me').contains(past), isTrue);
+    });
+
+    test('чужие дни дневника — только с видимыми постами', () {
+      s.currentUserId = 'olya';
+      s.posts.removeWhere((p) => p is DiaryPost && p.authorId == 'olya');
+      s.addDiaryPost(
+        date: DateTime(2026, 10, 1),
+        text: 'личное',
+        visibility: Audience.onlyMe,
+      );
+      s.addDiaryPost(date: DateTime(2026, 10, 2), text: 'для всех');
+      expect(s.diaryDays('olya', viewer: 'masha'), [DateTime(2026, 10, 2)]);
+      expect(s.diaryDays('olya', viewer: 'me'), isEmpty); // закрытый профиль
+    });
+
+    test('свободная пометка — это текстовая сторис дня', () {
+      final st = s.createTextStory(
+        text: 'а' * 400,
+        background: textStoryColors[2],
+      );
+      expect(st.isText, isTrue);
+      expect(st.text!.length, maxNoteLength);
+      expect(st.background, textStoryColors[2]);
+      expect(s.storiesOfDay('me', fixedNow).contains(st), isTrue);
     });
 
     test('план попадает в будущий день и по умолчанию виден только мне', () {
       final at = DateTime(2026, 11, 5, 9);
-      final n = s.createNote(
-        template: NoteTemplate.plan,
-        text: 'ДР мамы',
-        planAt: at,
-        remind: true,
-      );
+      final n = s.createPlan(text: 'ДР мамы', planAt: at);
       expect(n.visibility, Audience.onlyMe);
-      expect(s.notesOfDay('me', DateTime(2026, 11, 5)).contains(n), isTrue);
-      expect(s.notesOfDay('me', dateOnly(fixedNow)).contains(n), isFalse);
+      expect(s.plansOfDay('me', DateTime(2026, 11, 5)).contains(n), isTrue);
+      expect(s.plansOfDay('me', dateOnly(fixedNow)).contains(n), isFalse);
     });
 
     test('серия считает дни подряд до сегодня', () {
       s.posts.removeWhere((p) => p.authorId == 'me');
       for (var d = 0; d < 4; d++) {
         s.posts.add(
-          Note(
+          DiaryPost(
             id: 'n$d',
             authorId: 'me',
             createdAt: fixedNow.subtract(Duration(days: d)),
             visibility: Audience.everyone,
-            template: NoteTemplate.moment,
+            date: dateOnly(fixedNow.subtract(Duration(days: d))),
             text: 'x',
           ),
         );
       }
+      s.createPlan(text: 'p', planAt: fixedNow.add(const Duration(days: 1)));
       expect(s.streak('me'), 4);
       s.posts.removeWhere(
         (p) => p.id == 'n0',
@@ -277,15 +291,13 @@ void main() {
 
     test('опубликованные дни не считают «только я» и будущие планы', () {
       s.posts.removeWhere((p) => p.authorId == 'me');
-      s.createNote(template: NoteTemplate.moment, text: 'a');
-      s.createNote(
-        template: NoteTemplate.moment,
+      s.addDiaryPost(date: fixedNow, text: 'a');
+      s.addDiaryPost(
+        date: fixedNow.subtract(const Duration(days: 1)),
         text: 'b',
         visibility: Audience.onlyMe,
-        at: fixedNow.subtract(const Duration(days: 1)),
       );
-      s.createNote(
-        template: NoteTemplate.plan,
+      s.createPlan(
         text: 'c',
         planAt: fixedNow.add(const Duration(days: 3)),
         visibility: Audience.everyone,

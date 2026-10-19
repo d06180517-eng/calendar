@@ -53,7 +53,8 @@ Future<void> showCreateSheet(BuildContext context) {
               subtitle: context.t('createDiaryHint'),
               onTap: () {
                 Navigator.pop(sheet);
-                openDiary(context, context.read<AppState>().now);
+                final st = context.read<AppState>();
+                openDiary(context, st.currentUserId!, st.now);
               },
             ),
           ],

@@ -67,7 +67,7 @@ void main() {
     expect(find.text('Октябрь 2026'), findsOneWidget);
   });
 
-  testWidgets('добавление пометки на сегодня', (tester) async {
+  testWidgets('свободная пометка становится текстовой сторис', (tester) async {
     final s = await pumpApp(tester);
     await tester.scrollUntilVisible(
       inCalendar(find.byKey(const Key('addNote'))),
@@ -76,20 +76,40 @@ void main() {
     );
     await tester.tap(inCalendar(find.byKey(const Key('addNote'))));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Радость'));
+    expect(find.text('Свободная'), findsOneWidget);
+    expect(find.text('План'), findsOneWidget);
     await tester.enterText(find.byKey(const Key('noteText')), 'Солнце вышло');
     await tester.tap(find.byKey(const Key('saveNote')));
     await tester.pumpAndSettle();
+    final st = s.posts.whereType<Story>().where(
+      (x) => x.text == 'Солнце вышло',
+    );
+    expect(st, hasLength(1));
     expect(
-      s.posts.whereType<Note>().any((n) => n.text == 'Солнце вышло'),
+      s.storiesOfDay('me', DateTime(2026, 10, 19)).contains(st.single),
       isTrue,
     );
+  });
+
+  testWidgets('план на сегодня-завтра с напоминанием', (tester) async {
+    final s = await pumpApp(tester);
     await tester.scrollUntilVisible(
-      inCalendar(find.text('Солнце вышло')),
+      inCalendar(find.byKey(const Key('addNote'))),
       200,
       scrollable: calendarList(),
     );
-    expect(find.text('Солнце вышло'), findsOneWidget);
+    await tester.tap(inCalendar(find.byKey(const Key('addNote'))));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('План'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('noteText')), 'Купить билеты');
+    await tester.tap(find.byKey(const Key('saveNote')));
+    await tester.pumpAndSettle();
+    final pl = s.posts.whereType<Plan>().singleWhere(
+      (x) => x.text == 'Купить билеты',
+    );
+    expect(pl.planAt.isAfter(s.now), isTrue);
+    expect(pl.visibility, Audience.onlyMe);
   });
 
   testWidgets('пустую пометку сохранить нельзя', (tester) async {
@@ -106,28 +126,40 @@ void main() {
     expect(find.text('Напишите хоть пару слов'), findsOneWidget);
   });
 
-  testWidgets('дневник: настроение, текст, тег', (tester) async {
+  testWidgets('дневник как канал: пишем пост и листаем дни', (tester) async {
     final s = await pumpApp(tester);
+    final before = s.diaryOf('me', DateTime(2026, 10, 19)).length;
     await tester.scrollUntilVisible(
-      inCalendar(find.byKey(const Key('writeDiary'))),
+      inCalendar(find.byKey(const Key('openDiary'))),
       200,
       scrollable: calendarList(),
     );
-    await tester.tap(inCalendar(find.byKey(const Key('writeDiary'))));
+    await tester.drag(calendarList(), const Offset(0, -200));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Хорошо'));
-    await tester.enterText(find.byKey(const Key('diaryText')), 'Хороший день');
+    await tester.tap(inCalendar(find.byKey(const Key('openDiary'))));
+    await tester.pumpAndSettle();
     await tester.enterText(
-      find.widgetWithText(TextField, 'Добавить тег'),
-      'прогулка',
+      find.byKey(const Key('diaryInput')),
+      'Хороший день #прогулка',
     );
-    await tester.tap(find.byKey(const Key('saveDiary')));
+    await tester.tap(find.byKey(const Key('diarySend')));
     await tester.pumpAndSettle();
-    final e = s.diaryOf('me', DateTime(2026, 10, 19))!;
-    expect(e.text, 'Хороший день');
-    expect(e.mood, Mood.good);
-    expect(e.tags, ['#прогулка']);
-    expect(e.visibility, Audience.onlyMe);
+    final posts = s.diaryOf('me', DateTime(2026, 10, 19));
+    expect(posts.length, before + 1);
+    expect(posts.last.text, 'Хороший день #прогулка');
+    expect(posts.last.tags, ['#прогулка']);
+    expect(posts.last.visibility, Audience.everyone);
+    expect(
+      find.textContaining('Хороший день', findRichText: true),
+      findsOneWidget,
+    );
+    // Предыдущий день с постами.
+    await tester.tap(find.byKey(const Key('prevDay')));
+    await tester.pumpAndSettle();
+    expect(
+      find.textContaining('Хороший день', findRichText: true),
+      findsNothing,
+    );
   });
 
   testWidgets('лента: лайк и комментарий', (tester) async {
@@ -213,19 +245,11 @@ void main() {
       }
     }
     // Ключи, собранные динамически.
-    for (final t in NoteTemplate.values) {
-      used
-        ..add('tpl_${t.name}')
-        ..add('tplHint_${t.name}');
-    }
     used.addAll([
       'reportSpam',
       'reportAbuse',
       'reportNudity',
       'reportOther',
-      'moodGood',
-      'moodNeutral',
-      'moodBad',
       'followers_one',
       'followers_many',
       'days_one',

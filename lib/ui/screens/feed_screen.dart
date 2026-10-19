@@ -11,6 +11,7 @@ import '../widgets/media_view.dart';
 import '../widgets/post_actions.dart';
 import '../widgets/story_overlays.dart';
 import 'notifications_screen.dart';
+import 'diary_screen.dart';
 import 'profile_screen.dart';
 import 'search_screen.dart';
 
@@ -187,8 +188,8 @@ class _FeedItemState extends State<FeedItem>
     final me = s.currentUserId!;
     final showFollow = !s.isFollowing(me, author.id);
     final kind = switch (p) {
+      Story(isText: true) => context.t('kindNote'),
       Story() => context.t('kindStory'),
-      Note() => context.t('kindNote'),
       _ => context.t('kindDiary'),
     };
 
@@ -201,8 +202,7 @@ class _FeedItemState extends State<FeedItem>
           onDoubleTap: _doubleTapLike,
           child: switch (p) {
             Story() => _StoryContent(story: p, playing: widget.playing),
-            Note() => _NoteContent(note: p),
-            DiaryEntry() => _DiaryContent(entry: p),
+            DiaryPost() => _DiaryContent(entry: p),
             _ => const SizedBox.shrink(),
           },
         ),
@@ -412,6 +412,7 @@ class _StoryContent extends StatelessWidget {
     fit: StackFit.expand,
     children: [
       MediaView(media: story.media, playing: playing),
+      if (story.isText) TextStoryView(story: story),
       StoryOverlays(
         overlays: story.overlays,
         onMentionTap: (id) => openProfile(context, id),
@@ -439,151 +440,85 @@ class _StoryContent extends StatelessWidget {
   );
 }
 
-class _NoteContent extends StatelessWidget {
-  const _NoteContent({required this.note});
-  final Note note;
-
-  @override
-  Widget build(BuildContext context) {
-    final st = noteStyle(note.template);
-    return Container(
-      color: st.color,
-      padding: const EdgeInsets.fromLTRB(28, 120, 84, 120),
-      alignment: Alignment.centerLeft,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(st.icon, size: 16, color: AppColors.text),
-                const SizedBox(width: 4),
-                Text(
-                  templateLabel(context, note.template),
-                  style: const TextStyle(
-                    color: AppColors.text,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  hhmm(note.createdAt),
-                  style: const TextStyle(color: Colors.black54),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 18),
-          Text(
-            note.text,
-            style: const TextStyle(
-              color: AppColors.text,
-              fontSize: 26,
-              fontWeight: FontWeight.w700,
-              height: 1.25,
-            ),
-          ),
-          if (note.photo != null) ...[
-            const SizedBox(height: 18),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: SizedBox(
-                width: 200,
-                height: 200,
-                child: MediaView(media: note.photo!),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
 class _DiaryContent extends StatelessWidget {
   const _DiaryContent({required this.entry});
-  final DiaryEntry entry;
+  final DiaryPost entry;
 
   @override
   Widget build(BuildContext context) {
-    final bg = switch (entry.mood) {
-      Mood.good => const Color(0xFFDDF4E6),
-      Mood.bad => const Color(0xFFF8DEDE),
-      _ => AppColors.turquoiseLight,
-    };
-    return Container(
-      color: bg,
-      padding: const EdgeInsets.fromLTRB(28, 110, 84, 110),
-      alignment: Alignment.centerLeft,
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.menu_book_outlined, color: AppColors.text),
-                const SizedBox(width: 6),
-                Text(
-                  capitalize(formatDate(context, entry.date)),
-                  style: const TextStyle(
-                    color: AppColors.text,
-                    fontWeight: FontWeight.w700,
+    return GestureDetector(
+      onTap: () => openDiary(context, entry.authorId, entry.date),
+      child: Container(
+        color: AppColors.turquoiseLight,
+        padding: const EdgeInsets.fromLTRB(28, 110, 84, 110),
+        alignment: Alignment.centerLeft,
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 8,
+                children: [
+                  const Icon(Icons.menu_book_outlined, color: AppColors.text),
+                  Text(
+                    '${capitalize(formatDate(context, entry.date))}, ${hhmm(entry.createdAt)}',
+                    style: const TextStyle(
+                      color: AppColors.text,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  if (entry.weather != null)
+                    Text(
+                      formatWeather(entry.weather!),
+                      style: const TextStyle(color: AppColors.text),
+                    ),
+                ],
+              ),
+              if (entry.photos.isNotEmpty) ...[
+                const SizedBox(height: 14),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: AspectRatio(
+                    aspectRatio: 4 / 3,
+                    child: MediaView(media: entry.photos.first),
                   ),
                 ),
-                if (entry.weather != null) ...[
-                  const SizedBox(width: 10),
-                  Text(
-                    formatWeather(entry.weather!),
-                    style: const TextStyle(color: AppColors.text),
+                if (entry.photos.length > 1)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(
+                      '+${entry.photos.length - 1}',
+                      style: const TextStyle(
+                        color: AppColors.text,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ),
-                ],
               ],
-            ),
-            const SizedBox(height: 14),
-            Text(
-              entry.text,
-              maxLines: 12,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: AppColors.text,
-                fontSize: 19,
-                height: 1.4,
-              ),
-            ),
-            if (entry.tags.isNotEmpty) ...[
-              const SizedBox(height: 10),
+              if (entry.text.isNotEmpty) ...[
+                const SizedBox(height: 14),
+                Text(
+                  entry.text,
+                  maxLines: 10,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.text,
+                    fontSize: 19,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 14),
               Text(
-                entry.tags.join(' '),
+                '${context.t('openDiary')} →',
                 style: const TextStyle(
                   color: Color(0xFF2B7F78),
                   fontWeight: FontWeight.w700,
                 ),
               ),
             ],
-            if (entry.photos.isNotEmpty) ...[
-              const SizedBox(height: 14),
-              SizedBox(
-                height: 110,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  children: [
-                    for (final ph in entry.photos)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: MediaThumb(media: ph, size: 110, radius: 14),
-                      ),
-                  ],
-                ),
-              ),
-            ],
-          ],
+          ),
         ),
       ),
     );

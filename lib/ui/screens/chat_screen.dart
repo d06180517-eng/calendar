@@ -7,6 +7,7 @@ import '../../l10n.dart';
 import '../../services/media_picker.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/story_overlays.dart';
 import '../widgets/media_view.dart';
 import 'diary_screen.dart';
 import 'profile_screen.dart';
@@ -311,22 +312,8 @@ class _SharedPost extends StatelessWidget {
     final author = s.user(post.authorId);
     final p = post;
     final preview = switch (p) {
-      Story() => MediaThumb(media: p.media, size: 120, radius: 12),
-      Note() => Container(
-        width: 180,
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: noteStyle(p.template).color,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Text(
-          p.text,
-          maxLines: 4,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(color: AppColors.text),
-        ),
-      ),
-      DiaryEntry() => Container(
+      Story() => StoryThumb(story: p, size: 120, radius: 12),
+      DiaryPost() => Container(
         width: 180,
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
@@ -346,8 +333,8 @@ class _SharedPost extends StatelessWidget {
       onTap: () {
         if (p is Story) {
           openStories(context, [p]);
-        } else if (p is DiaryEntry) {
-          openDiary(context, p.date, entry: p);
+        } else if (p is DiaryPost) {
+          openDiary(context, p.authorId, p.date);
         } else {
           openProfile(context, p.authorId);
         }

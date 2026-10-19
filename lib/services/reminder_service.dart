@@ -80,15 +80,15 @@ class ReminderService {
     );
   }
 
-  int _idFor(Note n) => 1000 + (n.id.hashCode & 0x3fffffff);
+  int _idFor(Plan n) => 1000 + (n.id.hashCode & 0x3fffffff);
 
-  Future<void> schedulePlan(Note n, String title) async {
-    if (!_ready || n.planAt == null) return;
+  Future<void> schedulePlan(Plan n, String title) async {
+    if (!_ready) return;
     await _plugin.cancel(id: _idFor(n));
-    if (!n.remind || !n.planAt!.isAfter(DateTime.now())) return;
+    if (!n.remind || !n.planAt.isAfter(DateTime.now())) return;
     await _plugin.zonedSchedule(
       id: _idFor(n),
-      scheduledDate: tz.TZDateTime.from(n.planAt!, tz.local),
+      scheduledDate: tz.TZDateTime.from(n.planAt, tz.local),
       notificationDetails: _details,
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       title: title,
@@ -96,7 +96,7 @@ class ReminderService {
     );
   }
 
-  Future<void> cancelPlan(Note n) async {
+  Future<void> cancelPlan(Plan n) async {
     if (!_ready) return;
     await _plugin.cancel(id: _idFor(n));
   }
