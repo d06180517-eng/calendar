@@ -1,7 +1,9 @@
 import 'dart:io';
 
 import 'package:calendar_app/data/app_state.dart';
-import 'package:calendar_app/data/demo_data.dart';
+
+import 'demo_data.dart';
+
 import 'package:calendar_app/data/models.dart';
 import 'package:calendar_app/l10n.dart';
 import 'package:calendar_app/main.dart';
@@ -32,6 +34,7 @@ void main() {
   Future<AppState> pumpApp(
     WidgetTester tester, {
     bool loggedIn = true,
+    bool demo = true,
     String lang = 'ru',
   }) async {
     SharedPreferences.setMockInitialValues({});
@@ -39,7 +42,7 @@ void main() {
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
     final s = AppState(clock: () => DateTime(2026, 10, 19, 15));
-    seedDemo(s);
+    if (demo) seedDemo(s);
     s.languageCode = lang;
     if (loggedIn) s.currentUserId = 'me';
     await tester.pumpWidget(
@@ -65,6 +68,36 @@ void main() {
     await tester.tap(find.byKey(const Key('submit')));
     await tester.pumpAndSettle();
     expect(find.text('Октябрь 2026'), findsOneWidget);
+  });
+
+  testWidgets('чистый старт: свой профиль и все вкладки без данных', (
+    tester,
+  ) async {
+    final s = await pumpApp(tester, loggedIn: false, demo: false);
+    expect(s.users, isEmpty);
+    await tester.enterText(find.byKey(const Key('email')), 'dima@mail.ru');
+    await tester.enterText(find.byKey(const Key('password')), '123456');
+    await tester.tap(find.byKey(const Key('submit')));
+    await tester.pumpAndSettle();
+    expect(s.me!.nick, 'dima');
+    expect(s.users, hasLength(1));
+    for (final tab in [1, 3, 4, 0]) {
+      await tester.tap(find.byKey(Key('nav_$tab')));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    }
+    expect(find.text('@dima'), findsNothing); // календарь, не профиль
+    await tester.scrollUntilVisible(
+      inCalendar(find.byKey(const Key('openDiary'))),
+      200,
+      scrollable: calendarList(),
+    );
+    await tester.tap(inCalendar(find.byKey(const Key('openDiary'))));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('diaryInput')), 'Первый пост');
+    await tester.tap(find.byKey(const Key('diarySend')));
+    await tester.pumpAndSettle();
+    expect(s.diaryOf('me', DateTime(2026, 10, 19)), hasLength(1));
   });
 
   testWidgets('свободная пометка становится текстовой сторис', (tester) async {

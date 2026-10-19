@@ -97,9 +97,20 @@ class AppState extends ChangeNotifier {
   String? login(String email, String password) {
     if (!email.contains('@') || email.trim().length < 5) return 'badEmail';
     if (password.length < 6) return 'shortPassword';
-    currentUserId = 'me';
+    _ensureLocalUser(email.trim().split('@').first);
+    currentUserId = localUserId;
     notifyListeners();
     return null;
+  }
+
+  /// Пока нет сервера, на телефоне один локальный аккаунт.
+  static const localUserId = 'me';
+
+  void _ensureLocalUser(String nick) {
+    if (users.containsKey(localUserId)) return;
+    var clean = nick.toLowerCase().replaceAll(RegExp(r'[^a-z0-9_.]'), '');
+    if (clean.isEmpty) clean = 'user';
+    users[localUserId] = AppUser(id: localUserId, name: clean, nick: clean);
   }
 
   String? register(String email, String password, String name, String nick) {
@@ -107,11 +118,11 @@ class AppState extends ChangeNotifier {
     if (err != null) return err;
     final cleanNick = nick.trim().replaceAll('@', '');
     if (cleanNick.isEmpty) return 'emptyNick';
-    if (users.values.any((u) => u.id != 'me' && u.nick == cleanNick)) {
+    if (users.values.any((u) => u.id != localUserId && u.nick == cleanNick)) {
       currentUserId = null;
       return 'nickTaken';
     }
-    final m = users['me']!;
+    final m = users[localUserId]!;
     m.name = name.trim().isEmpty ? cleanNick : name.trim();
     m.nick = cleanNick;
     notifyListeners();
@@ -119,7 +130,8 @@ class AppState extends ChangeNotifier {
   }
 
   void loginWithGoogle() {
-    currentUserId = 'me';
+    _ensureLocalUser('user');
+    currentUserId = localUserId;
     notifyListeners();
   }
 
@@ -648,7 +660,7 @@ class AppState extends ChangeNotifier {
   }) {
     if (to == from) return;
     // Демо: уведомления храним только для текущего пользователя.
-    if (to != currentUserId && to != 'me') return;
+    if (to != currentUserId && to != localUserId) return;
     notifications.insert(
       0,
       AppNotification(

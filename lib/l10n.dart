@@ -249,7 +249,7 @@ const ru = <String, String>{
   'blockedList': 'Заблокированные',
   'logout': 'Выйти',
   'logoutQ': 'Выйти из аккаунта?',
-  'demoNote': 'Демо-режим: данные хранятся только до закрытия приложения',
+  'demoNote': 'Сервер пока не подключён: записи хранятся на телефоне до закрытия приложения',
   // Уведомления
   'notifications': 'Уведомления',
   'noNotifications': 'Пока тихо',
@@ -465,7 +465,8 @@ const en = <String, String>{
   'blockedList': 'Blocked',
   'logout': 'Log out',
   'logoutQ': 'Log out of your account?',
-  'demoNote': 'Demo mode: data is kept only until the app is closed',
+  'demoNote':
+      'No server yet: posts are kept on this phone until the app is closed',
   'notifications': 'Notifications',
   'noNotifications': 'All quiet',
   'nLike': 'liked your post',

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'app_state.dart';
-import 'models.dart';
+import 'package:calendar_app/data/app_state.dart';
+import 'package:calendar_app/data/models.dart';
 
 const demoGradients = <List<Color>>[
   [Color(0xFF9FE0D9), Color(0xFF3FA9A0)],

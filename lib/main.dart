@@ -5,7 +5,6 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
 
 import 'data/app_state.dart';
-import 'data/demo_data.dart';
 import 'services/reminder_service.dart';
 import 'services/weather_service.dart';
 import 'ui/screens/auth_screen.dart';
@@ -17,7 +16,6 @@ Future<void> main() async {
   await initializeDateFormatting('ru');
   await initializeDateFormatting('en');
   final state = AppState();
-  seedDemo(state);
   await state.loadSettings();
   final reminders = ReminderService();
   await reminders.init();

@@ -1,5 +1,7 @@
 import 'package:calendar_app/data/app_state.dart';
-import 'package:calendar_app/data/demo_data.dart';
+
+import 'demo_data.dart';
+
 import 'package:calendar_app/data/models.dart';
 import 'package:flutter_test/flutter_test.dart';
 
