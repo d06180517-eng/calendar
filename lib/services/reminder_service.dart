@@ -21,6 +21,7 @@ class ReminderService {
       importance: Importance.high,
       priority: Priority.high,
     ),
+    iOS: DarwinNotificationDetails(),
   );
 
   Future<void> init() async {
@@ -37,6 +38,8 @@ class ReminderService {
       await _plugin.initialize(
         settings: const InitializationSettings(
           android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+          // Разрешение на iOS спрашивается при первом запуске.
+          iOS: DarwinInitializationSettings(),
         ),
       );
       await _plugin

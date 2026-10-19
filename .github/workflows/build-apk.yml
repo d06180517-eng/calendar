@@ -1,4 +1,4 @@
-name: Build APK
+name: Build APK and IPA
 
 on:
   push:
@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 jobs:
-  build:
+  android:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -29,10 +29,42 @@ jobs:
         with:
           name: calendar-apk
           path: Calendar.apk
+
+  ios:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.7
+      - run: flutter pub get
+      # Без подписи: подписать можно своим Apple ID при установке
+      # (Sideloadly / AltStore) или позже сертификатом Apple Developer.
+      - run: flutter build ios --release --no-codesign
+      - name: Pack IPA
+        run: |
+          mkdir Payload
+          cp -R build/ios/iphoneos/Runner.app Payload/
+          zip -qr Calendar-unsigned.ipa Payload
+      - uses: actions/upload-artifact@v4
+        with:
+          name: calendar-ipa
+          path: Calendar-unsigned.ipa
+
+  release:
+    needs: [android, ios]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
       - name: Publish as latest release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_number }}
           name: Calendar (сборка ${{ github.run_number }})
-          files: Calendar.apk
+          files: |
+            Calendar.apk
+            Calendar-unsigned.ipa
           make_latest: true
