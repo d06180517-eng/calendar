@@ -1,17 +1,50 @@
-# calendar_app
+# Calendar
 
-A new Flutter project.
+Мобильное приложение для Android: личный календарь, в котором каждый день — это
+сторис, пометки и дневник. Всё, что человек решил показать, попадает в общую
+ленту в стиле TikTok, где можно лайкать, комментировать и переписываться.
 
-## Getting Started
+> Сейчас приложение работает на демо-данных в памяти (без сервера).
+> Подключение Firebase + Cloudinary — следующий этап, см. [docs/architecture.md](docs/architecture.md#бэкенд-план).
 
-This project is a starting point for a Flutter application.
+## Скачать
 
-A few resources to get you started if this is your first Flutter project:
+- **APK для Android** — последняя сборка всегда здесь:
+  [Releases → latest](https://github.com/d06180517-eng/calendar/releases/latest).
+  GitHub собирает новый APK после каждого push в `main`.
+- Вход в демо: любой email и пароль от 6 символов.
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+## Коротко о возможностях
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+| Раздел | Что внутри |
+|---|---|
+| **Календарь** | Месяц из квадратиков с закруглёнными углами; день со сторис показывает её превью. Под календарём — выбранный день: сторис, планы, дневник дня. |
+| **Сторис** | Фото/видео с камеры или галереи, текст, стикеры, отметки людей. 24 часа в ленте, в календаре — по выбору автора. Видео длиннее 60 с режется на части. |
+| **Пометки** | «Свободная» — текстовая сторис на цветном фоне. «План» — запись на будущую дату с напоминанием. |
+| **Дневник** | Канал дня: сколько угодно постов с текстом, фото, временем, погодой и #тегами. Свайп между днями. |
+| **Лента** | Полноэкранный вертикальный свайп: сторис, текстовые сторис и посты дневника. Сначала подписки и подписчики, потом остальные. |
+| **Социальное** | Лайки, комментарии с ответами и лайками, подписки, закрытый профиль, личные чаты, ответ на сторис в чат, «поделиться», жалобы, блокировка, поиск, уведомления. |
+| **Профиль** | Аватар, имя, @ник, о себе, город, ссылка, день рождения; подписчики, подписки, опубликованные дни, серия 🔥; календарь человека. |
+| **Настройки** | Тема (системная/светлая/тёмная), язык (RU/EN), напоминание о дневнике, закрытый профиль, заблокированные. |
+
+## Документация
+
+| Файл | О чём |
+|---|---|
+| [docs/product.md](docs/product.md) | Концепция, экраны и сценарии — что и где видит пользователь |
+| [docs/logic.md](docs/logic.md) | Правила и бизнес-логика: приватность, лента, сторис, дневник, планы, серия |
+| [docs/design.md](docs/design.md) | Дизайн-система: токены палитры, тёмная тема, шрифты, размеры, иконки, компоненты |
+| [docs/architecture.md](docs/architecture.md) | Стек, структура кода, состояние, сервисы, локализация, тесты, сборка, план бэкенда |
+
+## Быстрый старт для разработчика
+
+```bash
+flutter pub get
+flutter test                  # 39 тестов
+flutter run                   # на телефоне или эмуляторе
+flutter build apk --release   # build/app/outputs/flutter-apk/app-release.apk
+flutter build web --release --no-web-resources-cdn   # веб-превью
+```
+
+Нужны Flutter 3.47.7 (Dart 3.13), JDK 17 и Android SDK 36.
+Подробнее — в [docs/architecture.md](docs/architecture.md).
