@@ -90,9 +90,21 @@ flutter test      # 39 тестов
 ## Сборка и CI
 
 `.github/workflows/build-apk.yml` на каждый push в `main` (и вручную):
-`flutter pub get` → `flutter test` → `flutter build apk --release` →
-артефакт `calendar-apk` + релиз `build-N` с файлом `Calendar.apk`
-(последний — по ссылке `releases/latest`).
+
+- `android` (Ubuntu): `flutter test` → `flutter build apk --release` → `Calendar.apk`;
+- `ios` (macOS Intel): `flutter build ios --release --no-codesign` → папка
+  `Payload/Runner.app` в zip → `Calendar-unsigned.ipa`;
+- `release`: релиз `build-N` с обоими файлами (последний —
+  `releases/latest`). APK выпускается, даже если iOS-сборка не удалась
+  (у GitHub бывает очередь на Mac).
+
+## iOS
+
+- Bundle ID `com.dmitriy.calendarApp`, минимум iOS 15, название «Calendar».
+- Тексты разрешений в `ios/Runner/Info.plist`: камера, микрофон, фото,
+  геопозиция (для погоды). Уведомления запрашиваются при первом запуске.
+- IPA собирается без подписи. Для TestFlight/App Store нужен аккаунт
+  Apple Developer и сертификат с профилем в секретах GitHub.
 
 Веб-превью: `flutter build web --release --no-web-resources-cdn`
 (в `index.html` для публикации в подпапке `<base href>` меняется на `./`).
