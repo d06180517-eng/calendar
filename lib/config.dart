@@ -23,8 +23,8 @@ class AppConfig {
   );
 
   static const _ios = FirebaseOptions(
-    apiKey: '',
-    appId: '',
+    apiKey: 'AIzaSyB9lM3sOe2s2TO3BaeNgJMgLI1x57InA_8',
+    appId: '1:796050138013:ios:a503b2f07c17db70018574',
     messagingSenderId: '796050138013',
     projectId: 'calendar-3fdd3',
     storageBucket: 'calendar-3fdd3.firebasestorage.app',
