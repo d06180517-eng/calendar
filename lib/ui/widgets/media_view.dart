@@ -38,6 +38,7 @@ class _MediaViewState extends State<MediaView> {
   VideoPlayerController? _ctrl;
   bool _finished = false;
   bool _failed = false;
+  String? _error;
 
   bool get _isVideo =>
       widget.media.type == MediaType.video &&
@@ -51,20 +52,32 @@ class _MediaViewState extends State<MediaView> {
 
   Future<void> _initVideo() async {
     // Только что снятое видео играем с телефона, остальное — из облака.
+    // Если один источник не открылся, пробуем другой.
     final m = widget.media;
-    final c = m.path != null
-        ? controllerForPath(m.path!)
-        : VideoPlayerController.networkUrl(Uri.parse(m.url!));
-    _ctrl = c;
-    try {
-      await c.initialize();
-      await c.seekTo(widget.media.start);
-      c.addListener(_tick);
-      if (widget.playing) await c.play();
-      if (mounted) setState(() {});
-    } catch (_) {
-      if (mounted) setState(() => _failed = true);
+    final sources = <VideoPlayerController Function()>[
+      if (m.path != null) () => controllerForPath(m.path!),
+      if (m.url != null)
+        () => VideoPlayerController.networkUrl(Uri.parse(m.url!)),
+    ];
+    for (final make in sources) {
+      final c = make();
+      _ctrl = c;
+      try {
+        await c.initialize();
+        if (!mounted) return;
+        await c.seekTo(m.start);
+        c.addListener(_tick);
+        if (widget.playing) await c.play();
+        if (mounted) setState(() {});
+        return;
+      } catch (e) {
+        debugPrint('Видео не открылось: $e');
+        _error = '$e';
+        await c.dispose();
+        if (identical(_ctrl, c)) _ctrl = null;
+      }
     }
+    if (mounted) setState(() => _failed = true);
   }
 
   Duration get _end => widget.media.end ?? _ctrl!.value.duration;
@@ -144,7 +157,28 @@ class _MediaViewState extends State<MediaView> {
     }
     if (_isVideo && !widget.thumbnail) {
       final c = _ctrl;
-      if (_failed) return _placeholder(icon: Icons.videocam_off_outlined);
+      if (_failed) {
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            _placeholder(icon: Icons.videocam_off_outlined),
+            // Текст ошибки помогает понять, почему видео не открылось.
+            if (_error != null && !widget.thumbnail)
+              Positioned(
+                left: 16,
+                right: 16,
+                bottom: 120,
+                child: Text(
+                  _error!,
+                  maxLines: 4,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.white70, fontSize: 11),
+                ),
+              ),
+          ],
+        );
+      }
       if (c == null || !c.value.isInitialized) {
         return Container(
           color: Colors.black,
